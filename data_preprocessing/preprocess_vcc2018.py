@@ -8,17 +8,14 @@ import os
 import argparse
 import pickle
 import glob
-import random
 import numpy as np
 from tqdm import tqdm
+import math
 
 import librosa
-from librosa.filters import mel as librosa_mel_fn
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data.dataset import Dataset
+
 
 SAMPLING_RATE = 22050  # Fixed sampling rate
 
@@ -33,7 +30,13 @@ def normalize_mel(wavspath):
         wav_orig, _ = librosa.load(wavpath, sr=SAMPLING_RATE, mono=True)
         spec = vocoder(torch.tensor([wav_orig]))
 
-        if spec.shape[-1] >= 64:    # training sample consists of 64 randomly cropped frames
+        if spec.shape[-1] >= 64:    # training sample consists of 64 randomly cropped framesk
+            mel_list.append(spec.cpu().detach().numpy()[0])
+        else:
+            print("Current sample is smaller than 64 frames which is the minimum length. Repeat in time to reach it...")
+            curr_len = spec.shape[-1]
+            n_rep = int(math.ceil(64/curr_len))
+            spec = spec.repeat(1, 1, n_rep)
             mel_list.append(spec.cpu().detach().numpy()[0])
 
     mel_concatenated = np.concatenate(mel_list, axis=1)
