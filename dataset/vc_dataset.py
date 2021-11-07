@@ -16,6 +16,14 @@ class VCDataset(Dataset):
         self.valid = valid
         self.max_mask_len = max_mask_len
 
+        idsA = [key for key in self.datasetA]
+        idsB = [key for key in self.datasetB]
+        self.ids = list(set(idsA).intersection(set(idsB)))
+        print(self.ids)
+
+        self.len = len(self.ids)
+
+
     def __getitem__(self, index):
         dataset_A = self.datasetA
         dataset_B = self.datasetB
@@ -23,17 +31,18 @@ class VCDataset(Dataset):
         
         if self.valid:
             if dataset_B is None:  # only return datasetA utterance
-                return dataset_A[index]
+                return dataset_A[self.ids[index]]["mel"]
             else:
-                return dataset_A[index], dataset_B[index]
+                return dataset_A[self.ids[index]], dataset_B[self.ids[index]]
 
         self.length = min(len(dataset_A), len(dataset_B))
         num_samples = min(len(dataset_A), len(dataset_B))
 
         train_data_A_idx = np.arange(len(dataset_A))
         train_data_B_idx = np.arange(len(dataset_B))
-        np.random.shuffle(train_data_A_idx)  # Why do we shuffle?
-        np.random.shuffle(train_data_B_idx)
+        if not self.valid:
+            np.random.shuffle(train_data_A_idx)  # Why do we shuffle?
+            np.random.shuffle(train_data_B_idx)
         train_data_A_idx_subset = train_data_A_idx[:num_samples]
         train_data_B_idx_subset = train_data_B_idx[:num_samples]
 
@@ -77,10 +86,7 @@ class VCDataset(Dataset):
         return train_data_A[index], train_mask_A[index],  train_data_B[index], train_mask_B[index]
 
     def __len__(self):
-        if self.datasetB is None:
-            return len(self.datasetA)
-        else:
-            return min(len(self.datasetA), len(self.datasetB))
+        return self.len
 
 
 if __name__ == '__main__':

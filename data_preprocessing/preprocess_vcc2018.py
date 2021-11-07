@@ -11,45 +11,52 @@ import glob
 import numpy as np
 from tqdm import tqdm
 import math
-
+import os
 import librosa
 
 import torch
-
 
 SAMPLING_RATE = 22050  # Fixed sampling rate
 
 
 def normalize_mel(wavspath):
-    wav_files = glob.glob(os.path.join(
-        wavspath, '**', '*.wav'), recursive=True)  # source_path
+    wav_files = glob.glob(os.path.join(wavspath, '**', '*.wav'), recursive=True)  # source_path
+    # wav_files = [name for name in wav_files]
+    #print(wav_files)
+    wav_files.sort()
+    print(wav_files[-1])
+
     vocoder = torch.hub.load('descriptinc/melgan-neurips', 'load_melgan')
 
     mel_list = list()
+    mel_dict = dict()
     for wavpath in tqdm(wav_files, desc='Preprocess wav to mel'):
         wav_orig, _ = librosa.load(wavpath, sr=SAMPLING_RATE, mono=True)
+        id = "_".join(wavpath.split('/')[-1].split("_")[1:])
+        # print(id)
         spec = vocoder(torch.tensor([wav_orig]))
 
         if spec.shape[-1] >= 64:    # training sample consists of 64 randomly cropped framesk
+            mel_dict[id] = spec.cpu().detach().numpy()[0]
             mel_list.append(spec.cpu().detach().numpy()[0])
-        else:
-            print("Current sample is smaller than 64 frames which is the minimum length. Repeat in time to reach it...")
-            curr_len = spec.shape[-1]
-            n_rep = int(math.ceil(64/curr_len))
-            spec = spec.repeat(1, 1, n_rep)
-            mel_list.append(spec.cpu().detach().numpy()[0])
+        # else:
+        #     print("Current sample is smaller than 64 frames which is the minimum length. Repeat in time to reach it...")
+        #     curr_len = spec.shape[-1]
+        #     n_rep = int(math.ceil(64/curr_len))
+        #     spec = spec.repeat(1, 1, n_rep)
+        #     mel_list.append(spec.cpu().detach().numpy()[0])
 
     mel_concatenated = np.concatenate(mel_list, axis=1)
     mel_mean = np.mean(mel_concatenated, axis=1, keepdims=True)
     mel_std = np.std(mel_concatenated, axis=1, keepdims=True) + 1e-9
 
     mel_normalized = list()
-    for mel in mel_list:
+    for key, mel in mel_dict.items():
         assert mel.shape[-1] >= 64, f"Mel spectogram length must be greater than 64 frames, but was {mel.shape[-1]}"
         app = (mel - mel_mean) / mel_std
-        mel_normalized.append(app)
+        mel_dict[key] = app
 
-    return mel_normalized, mel_mean, mel_std
+    return mel_dict, mel_mean, mel_std
 
 
 def save_pickle(variable, fileName):

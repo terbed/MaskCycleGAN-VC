@@ -54,8 +54,9 @@ class MaskCycleGANVCTesting(object):
         self.dataset_B_std = dataset_B_norm_stats['std']
 
         source_dataset = self.dataset_A if self.model_name == 'generator_A2B' else self.dataset_B
+        trg_dataset = self.dataset_B if self.model_name == 'generator_A2B' else self.dataset_A
         self.dataset = VCDataset(datasetA=source_dataset,
-                                 datasetB=None,
+                                 datasetB=trg_dataset,
                                  valid=True)
         self.test_dataloader = torch.utils.data.DataLoader(dataset=self.dataset,
                                                            batch_size=1,
@@ -87,22 +88,28 @@ class MaskCycleGANVCTesting(object):
 
             save_path = None
             if self.model_name == 'generator_A2B':
-                real_A = sample
+                real_A = sample[0]
+                real_B = sample[1]
+                real_B = real_B.to(self.device, dtype=torch.float)
                 real_A = real_A.to(self.device, dtype=torch.float)
                 fake_B = self.generator(real_A, torch.ones_like(real_A))
 
                 wav_fake_B = decode_melspectrogram(self.vocoder, fake_B[0].detach(
                 ).cpu(), self.dataset_B_mean, self.dataset_B_std).cpu()
 
-                wav_real_A = decode_melspectrogram(self.vocoder, real_A[0].detach(
-                ).cpu(), self.dataset_A_mean, self.dataset_A_std).cpu()
+                wav_real_B = decode_melspectrogram(self.vocoder, real_B[0].detach().cpu(), self.dataset_B_mean, self.dataset_B_std).cpu()
+
+                wav_real_A = decode_melspectrogram(self.vocoder, real_A[0].detach().cpu(), self.dataset_A_mean, self.dataset_A_std).cpu()
                 save_path = os.path.join(self.converted_audio_dir, f"{i}-converted_{self.speaker_A_id}_to_{self.speaker_B_id}.wav")
                 save_path_orig = os.path.join(self.converted_audio_dir,
                                          f"{i}-original_{self.speaker_A_id}_to_{self.speaker_B_id}.wav")
+                save_path_trg = os.path.join(self.converted_audio_dir,
+                                         f"{i}-target_{self.speaker_A_id}_to_{self.speaker_B_id}.wav")
                 torchaudio.save(save_path, wav_fake_B, sample_rate=self.sample_rate)
                 torchaudio.save(save_path_orig, wav_real_A, sample_rate=self.sample_rate)
+                torchaudio.save(save_path_trg, wav_real_B, sample_rate=self.sample_rate)
             else:
-                real_B = sample
+                real_B = sample[0]
                 real_B = real_B.to(self.device, dtype=torch.float)
                 fake_A = self.generator(real_B, torch.ones_like(real_B))
 
