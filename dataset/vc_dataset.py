@@ -18,6 +18,7 @@ class VCDataset(Dataset):
 
         idsA = [key for key in self.datasetA]
         idsB = [key for key in self.datasetB]
+        print(idsA)
         self.ids = list(set(idsA).intersection(set(idsB)))
         print(self.ids)
 

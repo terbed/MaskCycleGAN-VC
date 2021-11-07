@@ -32,8 +32,8 @@ def normalize_mel(wavspath):
     mel_dict = dict()
     for wavpath in tqdm(wav_files, desc='Preprocess wav to mel'):
         wav_orig, _ = librosa.load(wavpath, sr=SAMPLING_RATE, mono=True)
-        id = "_".join(wavpath.split('/')[-1].split("_")[1:])
-        # print(id)
+        id = "_".join(wavpath.split(".")[0].split('/')[-1].split("_")[:2])
+        print(id)
         spec = vocoder(torch.tensor([wav_orig]))
 
         if spec.shape[-1] >= 64:    # training sample consists of 64 randomly cropped framesk
